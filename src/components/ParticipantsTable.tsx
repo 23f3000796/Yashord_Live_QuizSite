@@ -116,6 +116,24 @@ export function ParticipantsTable() {
       .map((r) => ({ ...r, rank: rankOf.get(r.participant_id)! }));
   }, [rows, sort, filter, onlyFlagged]);
 
+  const [removing, setRemoving] = useState<string | null>(null);
+  const remove = async (r: Participant) => {
+    if (!confirm(`Remove ${r.name} (${r.roll_number})?\n\nTheir answers and score are deleted. They can rejoin with the same roll number.`)) return;
+    setRemoving(r.participant_id);
+    try {
+      const res = await fetch("/api/host/participants", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ ids: [r.participant_id] }),
+      });
+      if (!res.ok) alert("Could not remove them. Try again.");
+      await load();
+    } finally {
+      setRemoving(null);
+    }
+  };
+
   const toggleSort = (key: SortKey) =>
     setSort((s) => (s.key === key ? { key, dir: (s.dir * -1) as 1 | -1 } : { key, dir: key === "name" || key === "roll_number" ? 1 : -1 }));
 
@@ -168,6 +186,7 @@ export function ParticipantsTable() {
               <Th label="Correct" sortKey="correct_count" />
               <Th label="On" sortKey="online" />
               <th className="py-2 pr-3">Flags</th>
+              <th className="py-2 pr-3" aria-label="Remove" />
               {questions.map((q) => (
                 <th
                   key={q.id}
@@ -210,6 +229,17 @@ export function ParticipantsTable() {
                       dup ×{r.device_mismatches}
                     </span>
                   )}
+                </td>
+                <td className="py-1.5 pr-3">
+                  <button
+                    className="rounded px-1.5 text-slate-500 hover:bg-bad/20 hover:text-bad disabled:opacity-40"
+                    title={`Remove ${r.name}`}
+                    aria-label={`Remove ${r.name}`}
+                    disabled={removing === r.participant_id}
+                    onClick={() => void remove(r)}
+                  >
+                    ✕
+                  </button>
                 </td>
                 {questions.map((q) => {
                   const a = r.answers[q.id];

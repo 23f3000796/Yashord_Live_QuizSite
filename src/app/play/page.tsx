@@ -10,7 +10,7 @@ import { FlyInText } from "@/components/fx/FlyInText";
 import { CrumbleText } from "@/components/fx/CrumbleText";
 import { ResultCard } from "@/components/fx/ResultCard";
 import { PODIUM_TIMELINE } from "@/components/fx/Podium";
-import { useOnce } from "@/components/fx/core";
+import { useOnce, resetPlayed } from "@/components/fx/core";
 import { useAudioUnlock } from "@/components/fx/sound";
 import type { LeaderboardEntry } from "@/lib/types";
 
@@ -162,7 +162,28 @@ export default function PlayPage() {
     return () => clearTimeout(id);
   }, [podiumStart, serverNow]);
 
+  // New game: let the animations play again for this device.
+  useEffect(() => {
+    if (phase === "IDLE") resetPlayed();
+  }, [phase]);
+
   if (!state) {
+    if (status === "offline") {
+      return (
+        <main className="flex min-h-dvh items-center justify-center px-6">
+          <div className="max-w-sm text-center">
+            <p className="text-5xl">📡</p>
+            <h1 className="mt-4 text-xl font-bold">Can&apos;t reach the quiz</h1>
+            <p className="mt-2 text-slate-400">
+              Check your internet connection. We&apos;ll keep trying automatically.
+            </p>
+            <button className="btn btn-primary mt-6" onClick={() => void refresh()}>
+              Try again
+            </button>
+          </div>
+        </main>
+      );
+    }
     return (
       <main className="flex min-h-dvh items-center justify-center px-6">
         <p className="text-slate-400">Loading…</p>
@@ -195,8 +216,10 @@ export default function PlayPage() {
         {phase === "IDLE" && (
           <Centered
             emoji="⏳"
-            title="You're in!"
-            body="Waiting for the host to start the quiz. Keep this page open."
+            title={`You're in${me?.name ? `, ${me.name.split(" ")[0]}` : ""}!`}
+            body={`${state.session.joined_count} ${
+              state.session.joined_count === 1 ? "player is" : "players are"
+            } in the lobby. Waiting for everyone to join — the host will start the quiz shortly. Keep this page open.`}
           />
         )}
 

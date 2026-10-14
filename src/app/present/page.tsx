@@ -6,7 +6,7 @@ import { Leaderboard } from "@/components/Leaderboard";
 import { FlyInText } from "@/components/fx/FlyInText";
 import { Podium } from "@/components/fx/Podium";
 import { burst } from "@/components/fx/confetti";
-import { useOnce } from "@/components/fx/core";
+import { useOnce, resetPlayed } from "@/components/fx/core";
 import { useAudioUnlock } from "@/components/fx/sound";
 import type { LeaderboardEntry } from "@/lib/types";
 
@@ -22,7 +22,13 @@ import type { LeaderboardEntry } from "@/lib/types";
  *     it isn't in the response at all until the phase makes it public.
  */
 export default function PresentPage() {
-  const { state, serverNow } = useQuizState();
+  const { state, status, serverNow } = useQuizState();
+
+  // New game: let the animations play again on the projector.
+  const lobbyPhase = state?.session.phase === "IDLE";
+  useEffect(() => {
+    if (lobbyPhase) resetPlayed();
+  }, [lobbyPhase]);
 
   const phase = state?.session.phase;
   const question = state?.question ?? null;
@@ -77,8 +83,17 @@ export default function PresentPage() {
 
   if (!state) {
     return (
-      <div className="present-root flex items-center justify-center">
-        <p className="text-4xl text-slate-500">Connecting…</p>
+      <div className="present-root flex flex-col items-center justify-center text-center">
+        {status === "offline" ? (
+          <>
+            <p className="text-5xl text-bad">Can&apos;t reach the quiz server</p>
+            <p className="mt-4 text-2xl text-slate-400">
+              Retrying automatically. Check the internet connection and that the Supabase project is running.
+            </p>
+          </>
+        ) : (
+          <p className="text-4xl text-slate-500">Connecting…</p>
+        )}
       </div>
     );
   }
@@ -105,7 +120,7 @@ export default function PresentPage() {
       >
         <div className="flex items-baseline gap-8">
           {phase === "IDLE" ? (
-            <span className="text-slate-400">Join at the link on the board</span>
+            <span className="text-slate-400">Lobby</span>
           ) : (
             <span className="font-bold text-slate-300">
               Question {state.question_number}
@@ -156,19 +171,37 @@ export default function PresentPage() {
       {/* ---- body ---- */}
       <main className="flex min-h-0 flex-1 flex-col justify-center py-6">
         {phase === "IDLE" && (
-          <div className="text-center">
+          <div className="text-center" style={{ fontSize: "clamp(0.9rem, min(2.6vw, 4.5vh), 3rem)" }}>
             <h1 className="brand title-float text-present font-bold">{state.session.title}</h1>
-            <p className="mt-10 text-5xl text-slate-400">
-              {state.session.joining_locked
-                ? "Joining is closed"
-                : "Join now — the quiz starts shortly"}
+            <p className="mt-[3vh] text-slate-400">
+              {state.session.joining_locked ? "Joining is closed" : "Open your phone and go to"}
             </p>
-            <p className="mt-14 text-3xl text-slate-500">
-              <span key={state.session.joined_count} className="count-pop">
+            {!state.session.joining_locked && (
+              <>
+                <p
+                  className="mt-[1vh] break-all font-mono font-bold text-accent"
+                  style={{ fontSize: "clamp(1.25rem, min(5vw, 8vh), 5rem)" }}
+                >
+                  {typeof window !== "undefined" ? window.location.host : ""}
+                </p>
+                <p className="mt-[1vh] text-slate-400">
+                  Join code{" "}
+                  <span
+                    className="font-mono font-bold text-slate-100"
+                    style={{ fontSize: "clamp(1.5rem, min(6vw, 10vh), 6rem)" }}
+                  >
+                    {state.session.code}
+                  </span>
+                </p>
+              </>
+            )}
+            <p className="mt-[3vh] text-slate-300">
+              <span key={state.session.joined_count} className="count-pop font-bold text-accent">
                 {state.session.joined_count}
               </span>{" "}
-              / {state.session.join_cap} joined
+              <span className="text-slate-500">/ {state.session.join_cap} joined</span>
             </p>
+            <p className="mt-[1vh] text-slate-500">Waiting for everyone to join…</p>
           </div>
         )}
 

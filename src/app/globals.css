@@ -1231,3 +1231,6 @@ body {
     animation-iteration-count: 1 !important;
   }
 }
+
+/* Fast taps must not trigger double-tap zoom; pinch-zoom stays available. */
+html { touch-action: manipulation; }

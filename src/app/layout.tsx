@@ -10,8 +10,6 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  // Students will be tapping fast; a double-tap must not zoom the page.
-  maximumScale: 1,
   themeColor: "#07050c",
 };
 

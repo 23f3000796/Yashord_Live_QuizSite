@@ -56,6 +56,18 @@ export function vibrate(pattern: number | number[]) {
 
 const memory = new Set<string>();
 
+/** Forget which effects have played, so a fresh game animates again. */
+export function resetPlayed(): void {
+  memory.clear();
+  try {
+    for (const k of Object.keys(sessionStorage)) {
+      if (k.startsWith("lq_fx:")) sessionStorage.removeItem(k);
+    }
+  } catch {
+    /* private mode */
+  }
+}
+
 function hasPlayed(key: string): boolean {
   if (memory.has(key)) return true;
   try {

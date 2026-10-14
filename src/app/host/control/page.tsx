@@ -150,6 +150,40 @@ export default function HostControlPage() {
     [post]
   );
 
+  // Back to the lobby with a clean slate. Saves a CSV of the results first,
+  // so a mis-click never loses a finished game.
+  const newGame = useCallback(
+    async (clearPlayers: boolean) => {
+      const ok = confirm(
+        clearPlayers
+          ? "Start a NEW game and REMOVE ALL PLAYERS?\n\nResults are downloaded as a CSV first. Everyone must join again."
+          : "Back to the lobby for a NEW game?\n\nResults are downloaded as a CSV first, then all scores are cleared. Players stay joined and wait in the lobby."
+      );
+      if (!ok) return;
+      try {
+        const res = await fetch("/api/host/export", { credentials: "same-origin" });
+        if (!res.ok) throw new Error("export");
+        const blob = await res.blob();
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `quiz-results-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-")}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      } catch {
+        setBanner({ kind: "err", text: "Couldn't save the results CSV, so nothing was reset." });
+        return;
+      }
+      await post(
+        "/api/host/reset",
+        { clear_players: clearPlayers },
+        "Back in the lobby. Scores cleared."
+      );
+    },
+    [post]
+  );
+
   useEffect(() => {
     if (!banner) return;
     const id = setTimeout(() => setBanner(null), 4000);
@@ -423,8 +457,25 @@ export default function HostControlPage() {
                 <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-400">
                   Phase
                 </h2>
+                {s.phase === "IDLE" && (
+                  <div className="mb-3 rounded-xl border border-accent/40 bg-accent/10 px-4 py-3">
+                    <p className="font-bold text-slate-100">
+                      Lobby open — {dash.counters.joined} / {s.join_cap} joined
+                    </p>
+                    <p className="mt-1 text-sm text-slate-400">
+                      Students see a waiting screen with the live count. Press
+                      Start when everyone is in; nobody sees a question before then.
+                    </p>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-2">
-                  <PhaseButton label="Start / Next Question" action={s.phase === "IDLE" ? "START" : "NEXT"} onAct={act} busy={busy} primary />
+                  <PhaseButton
+                    label={s.phase === "IDLE" ? `▶ Start quiz (${dash.counters.joined} in lobby)` : "Start / Next Question"}
+                    action={s.phase === "IDLE" ? "START" : "NEXT"}
+                    onAct={act}
+                    busy={busy}
+                    primary
+                  />
                   <PhaseButton label="Show Options" action="SHOW_OPTIONS" onAct={act} busy={busy} />
                   <PhaseButton label="Lock Answers" action="LOCK" onAct={act} busy={busy} />
                   <PhaseButton label="Reveal Answer" action="REVEAL" onAct={act} busy={busy} />
@@ -432,7 +483,16 @@ export default function HostControlPage() {
                   <PhaseButton label="Show Leaderboard" action="LEADERBOARD" onAct={act} busy={busy} />
                   <PhaseButton label="🏆 Show Top 3" action="PODIUM" onAct={act} busy={busy} />
                   <PhaseButton label="← Previous" action="PREV" onAct={act} busy={busy} />
-                  <PhaseButton label="Skip Question" action="SKIP" onAct={act} busy={busy} />
+                  <PhaseButton
+                    label="Skip Question"
+                    action="SKIP"
+                    onAct={(a) => {
+                      if (confirm("Skip this question? It is removed from this game until you restore it in the Questions tab.")) {
+                        void act(a);
+                      }
+                    }}
+                    busy={busy}
+                  />
                 </div>
               </div>
 
@@ -583,6 +643,14 @@ export default function HostControlPage() {
                     }}
                   >
                     ⏹ End session
+                  </button>
+
+                  <button className="btn" disabled={busy} onClick={() => void newGame(false)}>
+                    ↺ New game (back to lobby)
+                  </button>
+
+                  <button className="btn" disabled={busy} onClick={() => void newGame(true)}>
+                    🗑 New game + remove all players
                   </button>
                 </div>
               </div>
