@@ -141,10 +141,40 @@ const questions = records.map((rec, i) => {
   const line = i + 2; // +1 for zero-index, +1 for the header row
   const order_index = intOr(rec.order_index, i + 1);
   const question_text = String(rec.question_text ?? "").trim();
-  const options = buildOptions(rec);
-  const correct_option = String(rec.correct_option ?? "").trim().toUpperCase();
+  const kind = String(rec.kind ?? "mcq").trim().toLowerCase() === "text" ? "text" : "mcq";
+  const textFields = {
+    hint: String(rec.hint ?? "").trim() || null,
+    reveal_image_url: String(rec.reveal_image_url ?? "").trim() || null,
+  };
 
   if (!question_text) errors.push(`row ${line}: question_text is empty`);
+
+  // Typed-answer question: `answer` is the main answer shown at the
+  // reveal; `accepted_answers` (array, or "a|b|c" in CSV) are alternates.
+  if (kind === "text") {
+    const answer = String(rec.answer ?? rec.correct_option ?? "").trim();
+    if (!answer) errors.push(`row ${line}: a text question needs an answer`);
+    const alts = Array.isArray(rec.accepted_answers)
+      ? rec.accepted_answers
+      : String(rec.accepted_answers ?? "").split("|");
+    return {
+      order_index,
+      question_text,
+      image_url: String(rec.image_url ?? "").trim() || null,
+      options: [],
+      correct_option: answer,
+      solution_text: String(rec.solution_text ?? "").trim() || null,
+      reading_time_sec: intOr(rec.reading_time_sec, 5),
+      answer_time_sec: intOr(rec.answer_time_sec, 20),
+      points: intOr(rec.points, 100),
+      kind,
+      accepted_answers: alts.map((x) => String(x).trim()).filter(Boolean),
+      ...textFields,
+    };
+  }
+
+  const options = buildOptions(rec);
+  const correct_option = String(rec.correct_option ?? "").trim().toUpperCase();
   if (options.length < 2) errors.push(`row ${line}: needs at least 2 options`);
 
   // The check that matters most.
@@ -167,6 +197,9 @@ const questions = records.map((rec, i) => {
     reading_time_sec: intOr(rec.reading_time_sec, 5),
     answer_time_sec: intOr(rec.answer_time_sec, 20),
     points: intOr(rec.points, 100),
+    kind,
+    accepted_answers: [],
+    ...textFields,
   };
 });
 
@@ -185,7 +218,7 @@ if (errors.length) {
 }
 
 console.log(`\n✓ Parsed ${questions.length} questions from ${file}`);
-console.log(`  Answer keys: ${questions.map((q) => `${q.order_index}${q.correct_option}`).join(" ")}`);
+console.log(`  Answer keys: ${questions.map((q) => `${q.order_index}=${q.correct_option}`).join(" ")}`);
 
 const totalSec = questions.reduce(
   (a, q) => a + q.reading_time_sec + q.answer_time_sec,

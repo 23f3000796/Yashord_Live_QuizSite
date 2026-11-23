@@ -22,3 +22,7 @@ loadtest/results/
 
 # Event results — contains student names and roll numbers
 exports/
+
+# Guess the Gadget source images (file names give the answers away)
+Guess the Gadget/
+data/gadget-questions.json

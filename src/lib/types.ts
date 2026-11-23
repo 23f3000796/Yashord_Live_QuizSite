@@ -48,6 +48,7 @@ export interface QuestionRow {
   question_text: string;
   image_url: string | null;
   options: Option[];
+  /** mcq: the option key. text: the main answer, as shown at the reveal. */
   correct_option: string;
   solution_text: string | null;
   reading_time_sec: number;
@@ -56,7 +57,15 @@ export interface QuestionRow {
   voided: boolean;
   skipped: boolean;
   created_at: string;
+  /** Absent on a database that predates migration 0010: treat as mcq. */
+  kind?: QuestionKind;
+  accepted_answers?: string[] | null;
+  hint?: string | null;
+  reveal_image_url?: string | null;
 }
+
+/** mcq = tap an option. text = type the answer. */
+export type QuestionKind = "mcq" | "text";
 
 export interface ParticipantRow {
   id: string;
@@ -121,6 +130,11 @@ export interface PublicQuestion {
   reading_time_sec: number;
   points: number;
   voided: boolean;
+  kind: QuestionKind;
+  /** Shown under the image while answering. */
+  hint: string | null;
+  /** text questions: how many words the answer has (a public hint). */
+  answer_words: number | null;
 }
 
 export interface LeaderboardResponse {

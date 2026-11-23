@@ -9,6 +9,7 @@ import {
   getLeaderboard,
   NotFoundError,
 } from "@/lib/session";
+import { isAcceptedAnswer, normalizeAnswer } from "@/lib/textAnswer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,6 +48,27 @@ export async function GET() {
 
       answeredCount = count ?? 0;
       distribution = dist;
+    }
+
+    // Typed answers: group spellings that are the same answer ("air cannon",
+    // "Air Cannon") and mark which ones were accepted, so the host can see
+    // what the room wrote before revealing.
+    const current = questions.find((q) => q.id === session.current_question_id);
+    let typed: { answer: string; n: number; correct: boolean }[] | null = null;
+    if (current && (current.kind ?? "mcq") === "text") {
+      const groups = new Map<string, { answer: string; n: number; correct: boolean }>();
+      for (const [text, n] of Object.entries(distribution)) {
+        const key = normalizeAnswer(text) || text;
+        const g = groups.get(key);
+        if (g) g.n += n;
+        else
+          groups.set(key, {
+            answer: text,
+            n,
+            correct: isAcceptedAnswer(text, current.correct_option, current.accepted_answers ?? []),
+          });
+      }
+      typed = [...groups.values()].sort((a, b) => b.n - a.n);
     }
 
     // Online = heartbeat within the last 60s. Computed here rather than
@@ -92,6 +114,7 @@ export async function GET() {
           flagged: flaggedCount ?? 0,
         },
         distribution,
+        typed,
         cutoff: {
           top: session.leaderboard_top,
           tied: board.cutoff_tied,
@@ -103,6 +126,7 @@ export async function GET() {
           order_index: q.order_index,
           question_text: q.question_text,
           correct_option: q.correct_option,
+          kind: q.kind ?? "mcq",
           reading_time_sec: q.reading_time_sec,
           answer_time_sec: q.answer_time_sec,
           voided: q.voided,

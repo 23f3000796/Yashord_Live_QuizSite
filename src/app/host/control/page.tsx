@@ -32,6 +32,8 @@ interface Dashboard {
   };
   counters: { joined: number; online: number; answered: number; flagged: number };
   distribution: Record<string, number>;
+  /** Typed-answer questions: what the room wrote, grouped. */
+  typed?: { answer: string; n: number; correct: boolean }[] | null;
   cutoff: { top: number; tied: boolean; score: number | null; total: number };
   questions: DashboardQuestion[];
 }
@@ -370,6 +372,23 @@ export default function HostControlPage() {
                       text={q.question_text}
                       className="mb-4 text-lg leading-snug [&_.code-block]:text-sm"
                     />
+                    {q.kind === "text" && (
+                      <div className="mb-3 space-y-2 text-sm">
+                        <div className="rounded-lg border border-good bg-good/15 px-3 py-2">
+                          <span className="font-semibold">Typed answer: {q.correct_option}</span>
+                          <span className="ml-2 text-xs font-bold text-good">← ANSWER KEY</span>
+                        </div>
+                        {q.hint && (
+                          <p className="text-slate-400">
+                            <b className="text-slate-300">Hint shown:</b> {q.hint}
+                          </p>
+                        )}
+                        <p className="text-slate-500">
+                          Students see a {q.answer_words}-word hint. Small typos and
+                          alternate names are accepted automatically.
+                        </p>
+                      </div>
+                    )}
                     <div className="space-y-2">
                       {(q.options ?? []).map((o) => {
                         const correct = o.key === q.correct_option;
@@ -476,7 +495,7 @@ export default function HostControlPage() {
                     busy={busy}
                     primary
                   />
-                  <PhaseButton label="Show Options" action="SHOW_OPTIONS" onAct={act} busy={busy} />
+                  <PhaseButton label={q?.kind === "text" ? "Open Answers" : "Show Options"} action="SHOW_OPTIONS" onAct={act} busy={busy} />
                   <PhaseButton label="Lock Answers" action="LOCK" onAct={act} busy={busy} />
                   <PhaseButton label="Reveal Answer" action="REVEAL" onAct={act} busy={busy} />
                   <PhaseButton label="Show Solution" action="SOLUTION" onAct={act} busy={busy} />
@@ -532,6 +551,27 @@ export default function HostControlPage() {
                       );
                     })}
                   </div>
+                ) : dash.typed ? (
+                  dash.typed.length ? (
+                    <ul className="max-h-80 space-y-1 overflow-y-auto text-sm">
+                      {dash.typed.map((t) => (
+                        <li
+                          key={t.answer}
+                          className={`flex items-center gap-3 rounded-md px-2 py-1 ${
+                            t.correct ? "bg-good/15" : "bg-edge/40"
+                          }`}
+                        >
+                          <span className={`w-5 font-bold ${t.correct ? "text-good" : "text-bad"}`}>
+                            {t.correct ? "✓" : "✗"}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate">{t.answer}</span>
+                          <span className="tabular-nums text-slate-400">{t.n}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-slate-500">No typed answers yet.</p>
+                  )
                 ) : (
                   <p className="text-sm text-slate-500">
                     Available once options are shown.

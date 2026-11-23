@@ -4,6 +4,7 @@ import { getRawState, NotFoundError } from "@/lib/session";
 import { getParticipantId } from "@/lib/participantAuth";
 import { phaseAcceptsAnswers } from "@/lib/phases";
 import { computePoints, isWithinAnswerWindow } from "@/lib/scoring";
+import { isAcceptedAnswer, MAX_TEXT_ANSWER } from "@/lib/textAnswer";
 import type { Option } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -98,15 +99,32 @@ export async function POST(req: Request) {
       );
     }
 
-    const options = (question.options ?? []) as Option[];
-    if (!options.some((o) => o.key === selected)) {
-      return NextResponse.json(
-        { error: "That isn't one of the options." },
-        { status: 400 }
-      );
-    }
+    // Typed answer: checked here on the server against the main answer and
+    // its accepted alternates, none of which ever reach the student.
+    const isText = (question.kind ?? "mcq") === "text";
+    let stored = selected;
+    let isCorrect: boolean;
 
-    const isCorrect = selected === question.correct_option;
+    if (isText) {
+      stored = selected.replace(/\s+/g, " ").trim().slice(0, MAX_TEXT_ANSWER);
+      if (!stored) {
+        return NextResponse.json({ error: "Type an answer first." }, { status: 400 });
+      }
+      isCorrect = isAcceptedAnswer(
+        stored,
+        question.correct_option,
+        question.accepted_answers ?? []
+      );
+    } else {
+      const options = (question.options ?? []) as Option[];
+      if (!options.some((o) => o.key === selected)) {
+        return NextResponse.json(
+          { error: "That isn't one of the options." },
+          { status: 400 }
+        );
+      }
+      isCorrect = selected === question.correct_option;
+    }
     const points = computePoints({
       isCorrect,
       elapsedMs,
@@ -121,7 +139,7 @@ export async function POST(req: Request) {
     const { error } = await db().from("answers").insert({
       question_id: question.id,
       participant_id: participantId,
-      selected_option: selected,
+      selected_option: stored,
       is_correct: isCorrect,
       points_earned: points,
       server_elapsed_ms: Math.max(0, Math.round(elapsedMs)),
@@ -133,7 +151,7 @@ export async function POST(req: Request) {
       if (error.code === "23505") {
         return NextResponse.json({
           ok: true,
-          selected_option: selected,
+          selected_option: stored,
           already_answered: true,
         });
       }
@@ -157,7 +175,7 @@ export async function POST(req: Request) {
     // Confirmation only. No correctness, no points — see the note above.
     return NextResponse.json({
       ok: true,
-      selected_option: selected,
+      selected_option: stored,
       already_answered: false,
     });
   } catch (err) {

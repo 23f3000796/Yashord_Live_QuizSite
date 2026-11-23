@@ -12,7 +12,7 @@ import { ResultCard } from "@/components/fx/ResultCard";
 import { PODIUM_TIMELINE } from "@/components/fx/Podium";
 import { useOnce, resetPlayed } from "@/components/fx/core";
 import { useAudioUnlock } from "@/components/fx/sound";
-import type { LeaderboardEntry } from "@/lib/types";
+import type { LeaderboardEntry, PublicQuestion } from "@/lib/types";
 
 export default function PlayPage() {
   const router = useRouter();
@@ -228,8 +228,11 @@ export default function PlayPage() {
           <div>
             <TimerBar remaining={remaining} duration={state.session.phase_duration_sec} />
             <QuestionText id={question.id} text={question.question_text} image={question.image_url} />
+            {question.kind === "text" && <HintBox question={question} />}
             <p className="mt-6 text-center text-slate-400">
-              Read the question — options are coming.
+              {question.kind === "text"
+                ? "Get ready — you'll type your answer in a moment."
+                : "Read the question — options are coming."}
             </p>
           </div>
         )}
@@ -239,6 +242,13 @@ export default function PlayPage() {
           <div>
             <TimerBar remaining={remaining} duration={state.session.phase_duration_sec} />
             <QuestionText id={question.id} text={question.question_text} image={question.image_url} />
+
+            {question.kind === "text" && (
+              <>
+                <HintBox question={question} />
+                {!selected && <TextAnswerForm key={question.id} onSubmit={submit} />}
+              </>
+            )}
 
             <div className="mt-6 space-y-3">
               {(question.options ?? []).map((o, i) => {
@@ -269,7 +279,7 @@ export default function PlayPage() {
 
             {selected && !submitError && (
               <p className="mt-5 rounded-xl border border-good/40 bg-good/10 px-4 py-3 text-center font-medium text-green-200">
-                Answer locked in: {selected}
+                Answer locked in: {question.kind === "text" ? `“${selected}”` : selected}
               </p>
             )}
 
@@ -301,6 +311,17 @@ export default function PlayPage() {
                 </div>
               ))}
             </div>
+            {question.kind === "text" && (
+              <p className="mt-6 rounded-xl border border-edge bg-panel px-4 py-3 text-center text-slate-300">
+                {selected ? (
+                  <>
+                    Your answer: <b className="text-slate-100">“{selected}”</b>
+                  </>
+                ) : (
+                  "You didn't answer this one."
+                )}
+              </p>
+            )}
             <p className="mt-6 text-center font-medium text-slate-300">
               🔒 Answers locked. Waiting for the host…
             </p>
@@ -328,6 +349,14 @@ export default function PlayPage() {
                       mode={revealMode}
                       className="text-2xl font-semibold leading-snug [&_.code-block]:text-base [&_.code-block]:font-normal"
                     />
+                    {question.image_url && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={question.image_url}
+                        alt=""
+                        className="mt-4 max-h-64 w-full rounded-xl object-contain"
+                      />
+                    )}
                   </div>
                 ) : (
                   <QuestionText
@@ -336,6 +365,40 @@ export default function PlayPage() {
                     image={question.image_url}
                     animate={false}
                   />
+                )}
+
+                {question.kind === "text" && (
+                  <div className="mt-6 space-y-3">
+                    <div
+                      ref={correctRef}
+                      className={`option-btn border-good bg-good/20${
+                        revealMode === "animate" ? " reveal-correct" : ""
+                      }`}
+                    >
+                      <span className="flex-1">
+                        <span className="block text-xs font-bold uppercase tracking-wide text-green-300">
+                          Answer
+                        </span>
+                        <span className="text-xl font-bold">{question.correct_option}</span>
+                      </span>
+                      <span className="text-2xl">✓</span>
+                    </div>
+                    {answered && (
+                      <div
+                        className={`option-btn ${
+                          correct ? "border-good bg-good/10" : "border-bad bg-bad/20"
+                        }${revealMode === "animate" && !correct ? " reveal-wrong" : ""}`}
+                      >
+                        <span className="flex-1">
+                          <span className="block text-xs font-bold uppercase tracking-wide text-slate-400">
+                            You wrote
+                          </span>
+                          <span className="break-words">“{selected}”</span>
+                        </span>
+                        <span className="text-2xl">{correct ? "✓" : "✗"}</span>
+                      </div>
+                    )}
+                  </div>
                 )}
 
                 <div className="mt-6 space-y-3">
@@ -378,7 +441,9 @@ export default function PlayPage() {
                   correct={correct}
                   points={me?.my_answer?.points_earned ?? null}
                   voided={question.voided}
-                  correctLabel={right ? `${right.key}) ${right.text}` : question.correct_option ?? ""}
+                  correctLabel={
+                    right ? `${right.key}) ${right.text}` : question.correct_option ?? ""
+                  }
                   correctElement={() => correctRef.current}
                 />
 
@@ -504,6 +569,58 @@ function QuestionText({
         />
       )}
     </div>
+  );
+}
+
+/** The hint under a typed-answer question: what it does, and how many words. */
+function HintBox({ question }: { question: PublicQuestion }) {
+  if (!question.hint && !question.answer_words) return null;
+  return (
+    <div className="mt-4 rounded-xl border border-accent/40 bg-accent/10 px-4 py-3">
+      {question.hint && (
+        <p className="text-slate-200">
+          <span className="font-bold text-accent">Hint: </span>
+          {question.hint}
+        </p>
+      )}
+      {question.answer_words ? (
+        <p className={`text-sm font-semibold text-slate-300 ${question.hint ? "mt-1" : ""}`}>
+          ✍ {question.answer_words}-word answer
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/** Type-your-answer box. One submission; the server checks it. */
+function TextAnswerForm({ onSubmit }: { onSubmit: (text: string) => void }) {
+  const [value, setValue] = useState("");
+  const ready = value.trim().length > 0;
+  return (
+    <form
+      className="mt-5 flex gap-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (ready) onSubmit(value.trim());
+      }}
+    >
+      <input
+        className="min-w-0 flex-1 rounded-xl border border-edge bg-ink px-4 py-3 text-lg outline-none focus:border-accent"
+        placeholder="Type your answer…"
+        value={value}
+        maxLength={60}
+        onChange={(e) => setValue(e.target.value)}
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="off"
+        spellCheck={false}
+        enterKeyHint="send"
+        aria-label="Your answer"
+      />
+      <button type="submit" className="btn btn-primary shrink-0 px-5" disabled={!ready}>
+        Submit
+      </button>
+    </form>
   );
 }
 

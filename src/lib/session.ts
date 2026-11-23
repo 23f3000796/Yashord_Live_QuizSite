@@ -18,6 +18,7 @@ import type {
   LeaderboardResponse,
   ScoreRow,
 } from "./types";
+import { wordCount } from "./textAnswer";
 
 export class NotFoundError extends Error {}
 
@@ -71,18 +72,25 @@ export function toPublicQuestion(
   q: QuestionRow,
   phase: SessionRow["phase"]
 ): PublicQuestion {
+  const kind = q.kind ?? "mcq";
+  const revealed = phaseShowsAnswerKey(phase);
   return {
     id: q.id,
     order_index: q.order_index,
     question_text: q.question_text,
-    image_url: q.image_url,
-    options: phaseShowsOptions(phase) ? q.options : null,
+    // A zoomed-in picture is swapped for the whole gadget at the reveal.
+    // Before then the second image never leaves the server.
+    image_url: revealed && q.reveal_image_url ? q.reveal_image_url : q.image_url,
+    options: kind === "text" ? null : phaseShowsOptions(phase) ? q.options : null,
     correct_option: phaseShowsAnswerKey(phase) ? q.correct_option : null,
     solution_text: phaseShowsSolution(phase) ? q.solution_text : null,
     answer_time_sec: q.answer_time_sec,
     reading_time_sec: q.reading_time_sec,
     points: q.points,
     voided: q.voided,
+    kind,
+    hint: q.hint ?? null,
+    answer_words: kind === "text" ? wordCount(q.correct_option) : null,
   };
 }
 
@@ -154,7 +162,7 @@ export async function buildStatePayload(
       // never pass this flag.
       question.correct_option = current.correct_option;
       question.solution_text = current.solution_text;
-      question.options = current.options;
+      question.options = (current.kind ?? "mcq") === "text" ? null : current.options;
     }
   }
 

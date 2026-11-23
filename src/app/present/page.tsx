@@ -245,6 +245,38 @@ export default function PresentPage() {
               />
             )}
 
+            {/* Typed-answer question: hint while open, the answer at the reveal. */}
+            {question.kind === "text" &&
+              (question.correct_option !== null ? (
+                <div
+                  ref={correctCardRef}
+                  className={`mx-auto mt-[2vh] flex shrink-0 items-center gap-[2vw] rounded-2xl border-4 border-good bg-good/25 px-[3vw] py-[1.5vh]${
+                    revealMode === "animate" ? " reveal-stamp" : revealMode === "pending" ? " fx-wait" : ""
+                  }`}
+                >
+                  <span className="font-bold" style={{ fontSize: "clamp(1.5rem, min(4vw, 7vh), 5rem)" }}>
+                    {question.correct_option}
+                  </span>
+                  <span style={{ fontSize: "clamp(1.5rem, 3vw, 3.75rem)" }}>✓</span>
+                </div>
+              ) : (
+                <div
+                  className="mt-[2vh] shrink-0 text-center"
+                  style={{ fontSize: "clamp(1rem, min(2vw, 3.4vh), 2.5rem)" }}
+                >
+                  {question.hint && (
+                    <p className="text-slate-200">
+                      <span className="font-bold text-accent">Hint: </span>
+                      {question.hint}
+                    </p>
+                  )}
+                  <p className="mt-[0.5vh] text-slate-400">
+                    ✍ Type your answer on your phone
+                    {question.answer_words ? ` · ${question.answer_words}-word answer` : ""}
+                  </p>
+                </div>
+              ))}
+
             {/* Options appear only once the phase publishes them. */}
             {question.options && (
               <div
@@ -319,7 +351,7 @@ export default function PresentPage() {
               </div>
             )}
 
-            {phase === "QUESTION_ONLY" && (
+            {phase === "QUESTION_ONLY" && question.kind !== "text" && (
               <p className="mt-14 text-center text-4xl text-slate-500">
                 Read the question…
               </p>
