@@ -66,6 +66,7 @@ export async function POST(req: Request) {
           reading_time_sec: q.reading_time_sec,
           answer_time_sec: q.answer_time_sec,
           skipped: q.skipped,
+          leaderboard_after: q.leaderboard_after ?? false,
         })),
         leaderboardInterval: session.leaderboard_interval,
       }

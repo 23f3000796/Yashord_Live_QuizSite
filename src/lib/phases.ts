@@ -41,6 +41,8 @@ export interface MachineQuestion {
   reading_time_sec: number;
   answer_time_sec: number;
   skipped: boolean;
+  /** Show the leaderboard after this question (the end of a round). */
+  leaderboard_after?: boolean;
 }
 
 export interface MachineState {
@@ -267,14 +269,16 @@ export function applyAction(
         state.phase !== "LEADERBOARD" &&
         state.phase !== "PODIUM"
       ) {
+        // Explicit round ends win: once any question is marked as the end
+        // of a round, the leaderboard shows only there. Otherwise fall back
+        // to "every N questions".
         const n = questionNumber(ctx.questions, current.order_index);
         const interval = ctx.leaderboardInterval;
-        if (
-          n !== null &&
-          interval > 0 &&
-          n % interval === 0 &&
-          state.leaderboardShownAfter !== current.order_index
-        ) {
+        const byRound = ctx.questions.some((q) => q.leaderboard_after);
+        const due = byRound
+          ? !!current.leaderboard_after
+          : n !== null && interval > 0 && n % interval === 0;
+        if (due && state.leaderboardShownAfter !== current.order_index) {
           return {
             phase: "LEADERBOARD",
             status: "live",

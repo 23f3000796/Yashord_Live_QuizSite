@@ -143,6 +143,7 @@ const questions = records.map((rec, i) => {
   const question_text = String(rec.question_text ?? "").trim();
   const kind = String(rec.kind ?? "mcq").trim().toLowerCase() === "text" ? "text" : "mcq";
   const textFields = {
+    leaderboard_after: rec.leaderboard_after === true || String(rec.leaderboard_after).toLowerCase() === "true",
     hint: String(rec.hint ?? "").trim() || null,
     reveal_image_url: String(rec.reveal_image_url ?? "").trim() || null,
   };

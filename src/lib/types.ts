@@ -62,6 +62,8 @@ export interface QuestionRow {
   accepted_answers?: string[] | null;
   hint?: string | null;
   reveal_image_url?: string | null;
+  /** Show the leaderboard after this question (end of a round). */
+  leaderboard_after?: boolean;
 }
 
 /** mcq = tap an option. text = type the answer. */

@@ -476,6 +476,22 @@ export default function HostControlPage() {
                 <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-400">
                   Phase
                 </h2>
+                {dash.settings.status === "ended" && (
+                  <div className="mb-3 rounded-xl border border-warn/50 bg-warn/10 px-4 py-3">
+                    <p className="font-bold text-warn">This quiz has ended</p>
+                    <p className="mt-1 text-sm text-slate-300">
+                      New students can&apos;t join an ended quiz. To run it again, open
+                      the lobby first: everyone joins and waits, then you press Start.
+                    </p>
+                    <button
+                      className="btn btn-primary mt-3 w-full"
+                      disabled={busy}
+                      onClick={() => void newGame(false)}
+                    >
+                      ↺ New game — open the lobby
+                    </button>
+                  </div>
+                )}
                 {s.phase === "IDLE" && (
                   <div className="mb-3 rounded-xl border border-accent/40 bg-accent/10 px-4 py-3">
                     <p className="font-bold text-slate-100">
@@ -493,7 +509,7 @@ export default function HostControlPage() {
                     action={s.phase === "IDLE" ? "START" : "NEXT"}
                     onAct={act}
                     busy={busy}
-                    primary
+                    primary={dash.settings.status !== "ended"}
                   />
                   <PhaseButton label={q?.kind === "text" ? "Open Answers" : "Show Options"} action="SHOW_OPTIONS" onAct={act} busy={busy} />
                   <PhaseButton label="Lock Answers" action="LOCK" onAct={act} busy={busy} />

@@ -171,6 +171,16 @@ describe("auto leaderboard cadence", () => {
     expect(applyAction(at("SOLUTION", 5), "NEXT", ctx).phase).toBe("QUESTION_ONLY");
   });
 
+  it("with round ends marked, shows the leaderboard only at those", () => {
+    const ctx = makeCtx(20, 5);
+    for (const q of ctx.questions) q.leaderboard_after = [5, 10, 14].includes(q.order_index);
+    expect(applyAction(at("REVEALED", 5), "NEXT", ctx).phase).toBe("LEADERBOARD");
+    expect(applyAction(at("REVEALED", 14), "NEXT", ctx).phase).toBe("LEADERBOARD");
+    // 15 is a multiple of the interval, but not a round end
+    expect(applyAction(at("REVEALED", 15), "NEXT", ctx).phase).toBe("QUESTION_ONLY");
+    expect(applyAction(at("REVEALED", 13), "NEXT", ctx).phase).toBe("QUESTION_ONLY");
+  });
+
   it("lands on a final leaderboard past the last question", () => {
     const ctx = makeCtx(6, 5);
     const r = applyAction(at("SOLUTION", 6), "NEXT", ctx);
